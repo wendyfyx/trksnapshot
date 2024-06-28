@@ -1,3 +1,5 @@
+# trksnapshot
+
 ## Example Commands
 
 To visualization bundle with glass brain (provided by DIPY)
