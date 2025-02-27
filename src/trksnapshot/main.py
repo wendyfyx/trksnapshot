@@ -20,6 +20,8 @@ from dipy.viz import actor, window
 from dipy.tracking.streamline import transform_streamlines
 from fury.utils import map_coordinates_3d_4d
 
+default_glass_brain="~/.dipy/mni_template/mni_icbm152_t1_tal_nlin_asym_09c_mask.nii"
+
 # Custom discrete colormap
 DISCRETE_CMAP = list(plt.cm.tab10(np.arange(10))) + [np.array(mpl.colors.to_rgba('crimson')),
                                                      np.array(mpl.colors.to_rgba('indigo'))]
@@ -81,6 +83,15 @@ def colors_from_values(values, indx=None, cmap="YlOrBr_r",
 
     return colors_mapped
 
+def get_default_pial():
+    from nilearn.datasets import load_fsaverage
+    fsaverage_meshes = load_fsaverage()
+    pial_l = fsaverage_meshes['pial'].parts['left']
+    pial_r = fsaverage_meshes['pial'].parts['right']
+    faces_r_shifted = pial_r.faces + len(pial_l.coordinates)
+    vertices = np.vstack((pial_l.coordinates, pial_r.coordinates))
+    faces = np.vstack((pial_l.faces, faces_r_shifted))
+    return vertices, faces
 
 def run(args):
 
@@ -148,8 +159,15 @@ def run(args):
 
     if args.glass_brain_path is not None:
         for i, surf_path in enumerate(args.glass_brain_path):
+
+            # NIFTI image
+            if 'default_glass' in surf_path:
+                surf_path = default_glass_brain
+                logging.info(f"Using default glass brain path: {surf_path}.")
+
             fl = surf_path
             ends = fl.endswith
+
             if ends(".nii.gz") or ends(".nii"):
                 MASK, AFFINE = load_nifti(surf_path)
                 scene.add(
@@ -161,17 +179,23 @@ def run(args):
                     )
                 )
 
-            if ends(".gii.gz") or ends(".gii"):
-                surface = load_gifti(surf_path)
-                vertices, faces = surface
-                if len(vertices) and len(faces):
-                    vertices, faces = surface
+            # GIFTI image
+            if 'default_pial' in fl or ends(".gii.gz") or ends(".gii"):
+                if 'default_pial' in fl:
+                    vertices, faces = get_default_pial()
+                    logging.info('Using default pial surface...')
                 else:
-                    warn(
-                        "{} does not have any surface geometry.".format(
-                            args.glass_brain_path
+                    surface = load_gifti(surf_path)
+                    vertices, faces = surface
+                    if len(vertices) and len(faces):
+                        vertices, faces = surface
+                    else:
+                        warn(
+                            "{} does not have any surface geometry.".format(
+                                args.glass_brain_path
+                            )
                         )
-                    )
+
                 colors = np.zeros((vertices.shape[0], 3))
 
                 surf_actor = actor.surface(
@@ -246,7 +270,7 @@ def main():
     
     # Glass brain args
     parser.add_argument( "--glass_brain_path", "-glass", nargs="+", type=str, default=None, 
-                        help="Glass brain to plot", )
+                        help="Glass brain to plot, specify file paths, or default_glass, or default pial", )
 
     # Plot option args
     parser.add_argument( "--auto_crop", "-crop", action="store_true", 

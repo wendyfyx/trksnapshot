@@ -10,7 +10,8 @@ dependencies = [
   "dipy>=1.9.0",
   "fury>=0.10.0",
   "cmasher>=1.8.0",
-  "opencv-python>4.9.0.80"
+  "opencv-python>4.9.0.80",
+  "nilearn==0.11.1"
 ]
 requires-python = ">= 3.10"
 authors = [
