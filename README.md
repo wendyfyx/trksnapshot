@@ -9,7 +9,7 @@
 
 All bundle visualizations in our recent work [*Microstructural mapping of neural pathways in Alzheimer's disease using macrostructure-informed normative tractometry*](https://doi.org/10.1002/alz.14371) were created with this script. Here's one of the figures:
 
-![bundle_viz](https://alz-journals.onlinelibrary.wiley.com/cms/asset/00b230fd-e0e6-4451-bb68-518842fddc25/alz14371-fig-0001-m.jpg)
+<img src="assets/atlas_bundles.jpg" alt="bundle_atlas" width="500">
 
 ## Example Commands
 
