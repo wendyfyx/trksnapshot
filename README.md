@@ -18,14 +18,14 @@ All bundle visualizations in our recent work [*Microstructural mapping of neural
 
 [**RECOMMENDED**] To visualization bundle(s) with default pial surfaces (in MNI space)
 ```bash
-python snapshot_bundle.py \
+trksnapshot \
       -i /path_to_tractogram/bundle*.trk \
       -glass default_pial \
       -show
 ```
 You may also provide your own pial surface files
 ```bash
-python snapshot_bundle.py \
+trksnapshot \
       -i /path_to_tractogram/bundle*.trk \
       -glass /path_to_surfaces/pial_left.nii /path_to_surfaces/pial_right.nii \
       -show
@@ -33,7 +33,7 @@ python snapshot_bundle.py \
 
 To visualization bundle(s) with default glass brain (must be in MNI space)
 ```bash
-python snapshot_bundle.py \
+trksnapshot \
       -i /path_to_tractogram/bundle*.trk \
       -glass default_glass \
       -show
@@ -41,7 +41,7 @@ python snapshot_bundle.py \
 
 To visualization bundle with pial surfaces with BUAN output
 ```bash
-python snapshot_bundle.py \
+trksnapshot \
       -i /path_to_tractogram/bundle.trk \
       -f /path_to_buan_results/pvals.npy \
       -ctitle pvalues -auto -cbar /path_to_output_folder/cbar.png \
