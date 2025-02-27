@@ -1,7 +1,7 @@
 # trksnapshot
 
 ## Installatoin
- `pip install trksnapshot==0.1` ([project page](https://pypi.org/project/trksnapshot/0.1/))
+ `pip install trksnapshot` ([project page]([https://pypi.org/project/trksnapshot))
 
 ## Description
 **trksnapshot** is a CLI for creating bundle visualizations (created using FURY and DIPY). It supports  
