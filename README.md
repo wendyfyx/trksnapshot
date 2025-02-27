@@ -1,6 +1,6 @@
 # trksnapshot
 
-## Installatoin
+## Installation
  `pip install trksnapshot` ([project page]([https://pypi.org/project/trksnapshot))
 
 ## Description
