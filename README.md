@@ -6,9 +6,9 @@
 ## Description
 **trksnapshot** is a CLI for creating bundle visualizations (created using FURY and DIPY). It supports  
 1. Visualizing 3D bundles in an interactive window with custom color options and camera view. These include per-bundle color and along-tract color using BUAN (for tractometry results).
-2. Supports plotting bundle with glass brain and pial surfaces.
-3. Rotate the camera however you like and save camera settings to produce consistent plots.
-4. Save snapshot images for publication-ready figures!
+2. Plotting bundle with glass brain and pial surfaces.
+3. Saving custom camera settings to produce consistent plots.
+4. Saving snapshot images for publication-ready figures!
 
 All bundle visualizations in our recent work [*Microstructural mapping of neural pathways in Alzheimer's disease using macrostructure-informed normative tractometry*](https://doi.org/10.1002/alz.14371) were created with this script. Here's one of the figures:
 
