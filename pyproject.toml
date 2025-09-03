@@ -4,14 +4,14 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "trksnapshot"
-version = "0.1.1"
+version = "0.1.3"
 dependencies = [
   "matplotlib>=3.7.0",
-  "dipy>=1.9.0",
+  "dipy==1.9.0",
   "fury>=0.10.0",
-  "cmasher>=1.8.0",
   "opencv-python>4.9.0.80",
-  "nilearn==0.11.1"
+  "nilearn==0.11.1",
+  "numpy==1.26.4"
 ]
 requires-python = ">= 3.10"
 authors = [

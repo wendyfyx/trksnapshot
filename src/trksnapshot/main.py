@@ -8,7 +8,6 @@ import argparse
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 import numpy as np
-import cmasher as cmr
 import cv2   
 from nibabel.streamlines.array_sequence import ArraySequence
 
@@ -21,6 +20,15 @@ from dipy.tracking.streamline import transform_streamlines
 from fury.utils import map_coordinates_3d_4d
 
 default_glass_brain="~/.dipy/mni_template/mni_icbm152_t1_tal_nlin_asym_09c_mask.nii"
+
+SCALE=1.6
+CAM_SETTINGS = {
+    'Axial': {'view_up': (0,1,0), 'focal_point': (0,0,0), 'position': (0,0,SCALE) },
+    'Sagittal_L': {'view_up': (0,0,1), 'focal_point': (0,0,0),'position': (-1*SCALE, 0, 0) },
+    'Sagittal_R': {'view_up': (0,0,1), 'focal_point': (0,0,0),'position': (SCALE, 0, 0) },
+    'Coronal_A': {'view_up': (0,0,1), 'focal_point': (0,0,0), 'position': (0, SCALE, 0)},
+    'Coronal_P': {'view_up': (0,0,1), 'focal_point': (0,0,0), 'position': (0, -1*SCALE, 0)}
+    }
 
 # Custom discrete colormap
 DISCRETE_CMAP = list(plt.cm.tab10(np.arange(10))) + [np.array(mpl.colors.to_rgba('crimson')),
@@ -107,6 +115,10 @@ def run(args):
             focal_point=cam_settings["foc"],
             view_up=cam_settings["vup"],
         )
+    else:
+        cam=CAM_SETTINGS[args.cam_view]
+        logging.info(f'Camera is set to {args.cam_view}.')
+        scene.set_camera(**cam)
 
     for i, bundle_path in enumerate(args.in_bpath):
         bundle = load_trk(
@@ -247,6 +259,8 @@ def main():
                         help="Output filepath to save bundle snapshot, i.e. ./bundle.png", )
     
     # Cam settings args
+    parser.add_argument( "--cam_view", "-cam", type=str, default="Axial", 
+                        help="Select a preset cam view, from Axial (default), Saggital_L/R, Coronal_A/P", )
     parser.add_argument( "--in_campath", "-si", type=str, default=None, 
                         help="Input camera setting file, i.e ./cam.pkl", )
     parser.add_argument( "--out_campath", "-so", type=str, default=None, 
