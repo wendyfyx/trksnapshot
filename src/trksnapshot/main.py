@@ -1,9 +1,9 @@
 import sys
-
 import logging
 from warnings import warn
 import pickle
 import argparse
+import warnings
 
 import matplotlib as mpl
 import matplotlib.pyplot as plt
@@ -18,6 +18,8 @@ from dipy.stats.analysis import assignment_map
 from dipy.viz import actor, window
 from dipy.tracking.streamline import transform_streamlines
 from fury.utils import map_coordinates_3d_4d
+
+warnings.filterwarnings("ignore", category=UserWarning)
 
 default_glass_brain="~/.dipy/mni_template/mni_icbm152_t1_tal_nlin_asym_09c_mask.nii"
 
@@ -107,8 +109,8 @@ def run(args):
     scene.SetBackground(1, 1, 1)
 
     # Set camera given camera setting file
-    if args.in_campath is not None:
-        with open(args.in_campath, "rb") as f:
+    if args.in_camera_path is not None:
+        with open(args.in_camera_path, "rb") as f:
             cam_settings = pickle.load(f)
         scene.set_camera(
             position=cam_settings["pos"],
@@ -120,7 +122,8 @@ def run(args):
         logging.info(f'Camera is set to {args.cam_view}.')
         scene.set_camera(**cam)
 
-    for i, bundle_path in enumerate(args.in_bpath):
+    # Plot bundles
+    for i, bundle_path in enumerate(args.in_bundle_path):
         bundle = load_trk(
             bundle_path, "same", bbox_valid_check=False
         ).streamlines
@@ -128,37 +131,39 @@ def run(args):
 
         # Make segment colors if values are supplied
         colors = None
-        if args.value_file is not None:
-            if args.value_file[0].endswith('.npy'): # Along-tract segment color
-                values = np.load(args.value_file[i])
+        values = None
+        if args.bundle_color is not None:
+            if args.bundle_color[0].endswith('.npy'): # Along-tract segment color
+                values = np.load(args.bundle_color[i])
                 indx = assignment_map(bundle, bundle, len(values))
                 indx = np.array(indx)
 
-            elif args.value_file[0].endswith('nii.gz'): # Volume color
-                img_data, affine = load_nifti(args.value_file[0])
+            elif args.bundle_color[0].endswith('nii.gz'): # Volume color
+                img_data, affine = load_nifti(args.bundle_color[0]) # only support one volume
                 bundle_native = transform_streamlines(bundle, np.linalg.inv(affine))
                 bundle_native = ArraySequence(bundle_native).get_data()
                 values = map_coordinates_3d_4d(img_data, bundle_native).T
                 indx = None
 
-            colors = colors_from_values(
-                values,
-                indx=indx,
-                cmap=args.cmap,
-                vmin=args.vmin,
-                vmax=args.vmax,
-                label=args.cmap_title,
-                save_cmap=args.out_cbarpath,
-            )
+            else: # Per bundle color
+                colors = np.array(mpl.colors.to_rgba(args.bundle_color[i]))
 
-        elif args.per_bundle_color is not None:
-            colors = np.array(mpl.colors.to_rgba(args.per_bundle_color[i]))
+            if values is not None: # Convert along-tract or volume values to color
+                colors = colors_from_values(
+                    values,
+                    indx=indx,
+                    cmap=args.cmap,
+                    vmin=args.vmin,
+                    vmax=args.vmax,
+                    label=args.cmap_title,
+                    save_cmap=args.out_cbarpath,
+                )
 
-        if args.as_points:
+        if args.as_points: # Plot bundle as points 
             stream_actor = actor.point(
                 bundle.get_data(), colors=window.colors.green, point_radius=0.3
             )
-        else:
+        else: # Plot bundle as streamlines 
             stream_actor = actor.line(
                 bundle, 
                 fake_tube=args.fake_tube, 
@@ -169,17 +174,17 @@ def run(args):
 
         scene.add(stream_actor)
 
+    # Plot glass brain
     if args.glass_brain_path is not None:
         for i, surf_path in enumerate(args.glass_brain_path):
 
-            # NIFTI image
             if 'default_glass' in surf_path:
                 surf_path = default_glass_brain
                 logging.info(f"Using default glass brain path: {surf_path}.")
 
-            fl = surf_path
-            ends = fl.endswith
+            ends = surf_path.endswith
 
+            # NIFTI image
             if ends(".nii.gz") or ends(".nii"):
                 MASK, AFFINE = load_nifti(surf_path)
                 scene.add(
@@ -187,13 +192,13 @@ def run(args):
                         MASK,
                         affine=AFFINE,
                         color=np.array([0, 0, 0]),
-                        opacity=0.08,
+                        opacity=0.05,
                     )
                 )
 
             # GIFTI image
-            if 'default_pial' in fl or ends(".gii.gz") or ends(".gii"):
-                if 'default_pial' in fl:
+            if 'default_pial' in surf_path or ends(".gii.gz") or ends(".gii"):
+                if 'default_pial' in surf_path:
                     vertices, faces = get_default_pial()
                     logging.info('Using default pial surface...')
                 else:
@@ -213,36 +218,54 @@ def run(args):
                 surf_actor = actor.surface(
                     vertices, faces=faces, colors=colors
                 )
-                surf_actor.GetProperty().SetOpacity(0.06)
+                surf_actor.GetProperty().SetOpacity(0.05)
 
                 scene.add(surf_actor)
+
+    if args.mask_path is not None:
+        for i, mask_path in enumerate(args.mask_path):
+            if args.mask_color is not None:
+                mask_color = np.array(mpl.colors.to_rgba(args.mask_color[i]))
+            else:
+                mask_color = np.array([0, 0, 0])
+            if mask_path.endswith(".nii.gz") or mask_path.endswith(".nii"):
+                MASK, AFFINE = load_nifti(mask_path)
+                logging.info(f"Loaded mask {mask_path}")
+                scene.add(
+                    actor.contour_from_roi(
+                        MASK,
+                        affine=AFFINE,
+                        color=mask_color,
+                        opacity=args.mask_opacity,
+                    )
+                )
 
     # Show bundle window
     if args.show_bundle:
         window.show(scene, size=(1200, 1200))
 
     # Save camera settings
-    if args.out_campath is not None:
+    if args.out_camera_path is not None:
         cam_settings = {}
         cam_settings["pos"], cam_settings["foc"], cam_settings["vup"] = (
             scene.get_camera()
         )
-        with open(args.out_campath, "wb") as f:
-            logging.info(f"Saving camera settings to {args.out_campath}")
+        with open(args.out_camera_path, "wb") as f:
+            logging.info(f"Saving camera settings to {args.out_camera_path}")
             pickle.dump(cam_settings, f)
 
     # Save bundle snapshot
-    if args.out_bpath is not None:
+    if args.out_image_path is not None:
         if args.auto_crop:
             arr = window.snapshot(scene, size=(1200, 1200))
             arr = autocrop(arr, border=10)
             arr = cv2.cvtColor(arr, cv2.COLOR_BGR2RGB)
-            cv2.imwrite(args.out_bpath, arr)
+            cv2.imwrite(args.out_image_path, arr)
 
-            logging.info(f"Saved cropped bundle snapshot to {args.out_bpath}")
+            logging.info(f"Saved cropped bundle snapshot to {args.out_image_path}")
         else:
-            logging.info(f"Saved bundle snapshot to {args.out_bpath}")
-            window.record(scene, size=(1200, 1200), out_path=args.out_bpath)
+            logging.info(f"Saved bundle snapshot to {args.out_image_path}")
+            window.record(scene=scene, size=(1200, 1200), out_path=args.out_image_path)
 
 
 def main():
@@ -253,22 +276,23 @@ def main():
     
 
     parser = argparse.ArgumentParser()
-    parser.add_argument( "--in_bpath", "-i", nargs="+", type=str, required=True, 
-                        help="Input bundle file(s), i.e. ./bundle.trk", )
-    parser.add_argument( "--out_bpath", "-o", type=str, default=None, 
-                        help="Output filepath to save bundle snapshot, i.e. ./bundle.png", )
+    parser.add_argument( "--in_bundle_path", "-i", nargs="+", type=str, required=True, 
+                        help="Input bundle file(s), i.e. bundle.trk", )
+    parser.add_argument( "--out_image_path", "-o", type=str, default=None, 
+                        help="Output filepath to save bundle snapshot, i.e. bundle.png", )
     
     # Cam settings args
     parser.add_argument( "--cam_view", "-cam", type=str, default="Axial", 
                         help="Select a preset cam view, from Axial (default), Saggital_L/R, Coronal_A/P", )
-    parser.add_argument( "--in_campath", "-si", type=str, default=None, 
+    parser.add_argument( "--in_camera_path", "-si", type=str, default=None, 
                         help="Input camera setting file, i.e ./cam.pkl", )
-    parser.add_argument( "--out_campath", "-so", type=str, default=None, 
+    parser.add_argument( "--out_camera_path", "-so", type=str, default=None, 
                         help="Output camera setting file, i.e ./cam.pkl", )
     
-    # Along-tract color args
-    parser.add_argument( "--value_file", "-f", nargs="*", type=str, default=None, 
-                        help="Input value path, can be nifti or .npy for along-tract colors", )
+    # Bundle color args
+    parser.add_argument( "--bundle_color", "-c", nargs="*", type=str, default=None, 
+                        help="Bundle color(s), can be mpl colors (string), along-tract colors (.npy), \
+                             or volume color (.nii.gz, only one file is supported")
     parser.add_argument( "--cmap", "-cmap", type=str, default="YlOrBr_r", 
                         help="Colormap name from matplotlib or cmasher i.e. Blues", )
     parser.add_argument( "--cmap_title", "-ctitle", type=str, default="values", 
@@ -285,12 +309,19 @@ def main():
     # Glass brain args
     parser.add_argument( "--glass_brain_path", "-glass", nargs="+", type=str, default=None, 
                         help="Glass brain to plot, specify file paths, or default_glass, or default pial", )
+    
+    # Mask/ROI args
+    parser.add_argument( "--mask_path", "-mask", nargs="+", type=str, required=True, 
+                        help="Input mask file(s), i.e. roi.nii.gz", )
+    parser.add_argument( "--mask_color", "-mask_color", nargs="*", type=str, default=None, 
+                        help="List of color names (available in mpl) to use for each mask", )
+    parser.add_argument( "--mask_opacity", "-mask_opacity", type=float, default=0.3, 
+                        help="Opacity for mask(s)", )
 
     # Plot option args
     parser.add_argument( "--auto_crop", "-crop", action="store_true", 
                         help="Automatically crop image when saving", )
-    parser.add_argument( "--per_bundle_color", "-per_bundle_color", nargs="*", type=str, default=None, 
-                        help="List of color names (available in mpl) to use for each bundle", )
+
     parser.add_argument( "--show_bundle", "-show", action="store_true", 
                         help="Show the interactive window", )
     parser.add_argument( "--as_points", "-points", action="store_true", 
@@ -298,7 +329,7 @@ def main():
     parser.add_argument( "--linewidth", "-linewidth", type=float, default=4, 
                         help="Thickness of streamlines", )
     parser.add_argument( "--opacity", "-a", type=float, default=1, 
-                        help="Opacity", )
+                        help="Opacity for bundles", )
     parser.add_argument( "--fake_tube", "-fake_tube", action="store_true", default=True, 
                         help="Show streamline as fake tube", )
     args = parser.parse_args()
