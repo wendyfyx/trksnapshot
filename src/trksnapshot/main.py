@@ -276,7 +276,7 @@ def main():
     
 
     parser = argparse.ArgumentParser()
-    parser.add_argument( "--in_bundle_path", "-i", nargs="+", type=str, required=True, 
+    parser.add_argument( "--in_bundle_path", "-i", nargs="+", type=str, required=False, 
                         help="Input bundle file(s), i.e. bundle.trk", )
     parser.add_argument( "--out_image_path", "-o", type=str, default=None, 
                         help="Output filepath to save bundle snapshot, i.e. bundle.png", )
@@ -311,7 +311,7 @@ def main():
                         help="Glass brain to plot, specify file paths, or default_glass, or default pial", )
     
     # Mask/ROI args
-    parser.add_argument( "--mask_path", "-mask", nargs="+", type=str, required=True, 
+    parser.add_argument( "--mask_path", "-mask", nargs="+", type=str, required=False, 
                         help="Input mask file(s), i.e. roi.nii.gz", )
     parser.add_argument( "--mask_color", "-mask_color", nargs="*", type=str, default=None, 
                         help="List of color names (available in mpl) to use for each mask", )
