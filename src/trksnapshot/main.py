@@ -1,9 +1,9 @@
 import sys
 import logging
-from warnings import warn
 import pickle
 import argparse
 import warnings
+import importlib.resources as resources
 
 import matplotlib as mpl
 import matplotlib.pyplot as plt
@@ -21,7 +21,8 @@ from fury.utils import map_coordinates_3d_4d
 
 warnings.filterwarnings("ignore", category=UserWarning)
 
-default_glass_brain="~/.dipy/mni_template/mni_icbm152_t1_tal_nlin_asym_09c_mask.nii"
+default_glass_brain = resources.files("trksnapshot.assets").joinpath("mni_icbm152_wm_tal_nlin_asym_09a.nii")
+# default_glass_brain="/mni_template/mni_icbm152_t1_tal_nlin_asym_09c_mask.nii"
 
 SCALE=1.6
 CAM_SETTINGS = {
@@ -93,6 +94,14 @@ def colors_from_values(values, indx=None, cmap="YlOrBr_r",
 
     return colors_mapped
 
+
+def get_default_glass():
+    from scipy.ndimage import gaussian_filter
+    img, affine = load_nifti(default_glass_brain)
+    img[img<0.25]=0
+    img=gaussian_filter(img, 0.5)
+    return img, affine
+
 def get_default_pial():
     from nilearn.datasets import load_fsaverage
     fsaverage_meshes = load_fsaverage()
@@ -127,7 +136,7 @@ def run(args):
         bundle = load_trk(
             bundle_path, "same", bbox_valid_check=False
         ).streamlines
-        logging.info(f'Loaded {bundle_path}.')
+        logging.info(f'Loaded {len(bundle)} streamlines from {bundle_path}.')
 
         # Make segment colors if values are supplied
         colors = None
@@ -178,19 +187,19 @@ def run(args):
     if args.glass_brain_path is not None:
         for i, surf_path in enumerate(args.glass_brain_path):
 
-            if 'default_glass' in surf_path:
-                surf_path = default_glass_brain
-                logging.info(f"Using default glass brain path: {surf_path}.")
-
             ends = surf_path.endswith
 
             # NIFTI image
-            if ends(".nii.gz") or ends(".nii"):
-                MASK, AFFINE = load_nifti(surf_path)
+            if 'default_glass' in surf_path or ends(".nii.gz") or ends(".nii"):
+                if 'default_glass' in surf_path:
+                    mask, affine = get_default_glass()
+                    logging.info(f"Using default glass brain...")
+                else:
+                    mask, affine = load_nifti(surf_path)
                 scene.add(
                     actor.contour_from_roi(
-                        MASK,
-                        affine=AFFINE,
+                        mask,
+                        affine=affine,
                         color=np.array([0, 0, 0]),
                         opacity=0.05,
                     )
@@ -207,7 +216,7 @@ def run(args):
                     if len(vertices) and len(faces):
                         vertices, faces = surface
                     else:
-                        warn(
+                        warnings.warn(
                             "{} does not have any surface geometry.".format(
                                 args.glass_brain_path
                             )
@@ -258,7 +267,7 @@ def run(args):
     if args.out_image_path is not None:
         if args.auto_crop:
             arr = window.snapshot(scene, size=(1200, 1200))
-            arr = autocrop(arr, border=10)
+            arr = autocrop(arr, border=15)
             arr = cv2.cvtColor(arr, cv2.COLOR_BGR2RGB)
             cv2.imwrite(args.out_image_path, arr)
 
