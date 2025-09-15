@@ -37,19 +37,39 @@ CAM_SETTINGS = {
 DISCRETE_CMAP = list(plt.cm.tab10(np.arange(10))) + [np.array(mpl.colors.to_rgba('crimson')),
                                                      np.array(mpl.colors.to_rgba('indigo'))]
 
-def autocrop(image, border=10):
-    '''
-        Automatically crop image to remove whole rows/columns with white space
-        Adatped from https://stackoverflow.com/a/14211727
-    '''
-    image_data = np.asarray(image)
-    image_data_bw = image_data.max(axis=2)
-    non_empty_columns = np.where(image_data_bw.min(axis=0)<255)[0]
-    non_empty_rows = np.where(image_data_bw.min(axis=1)<255)[0]
-    cropBox = (min(non_empty_rows)-border, max(non_empty_rows)+border, 
-               min(non_empty_columns)-border, max(non_empty_columns)+border)
-    image_data_new = image_data[cropBox[0]:cropBox[1]+1, cropBox[2]:cropBox[3]+1 , :]
-    return image_data_new
+
+def autocrop_png(fname, border=20):
+    # Load image
+    img = plt.imread(fname)
+    
+    # If PNG has alpha channel, ignore it for cropping
+    if img.shape[-1] == 4:
+        rgb = img[:, :, :3]
+    else:
+        rgb = img
+
+    # Assume white border is [1,1,1] in RGB (matplotlib loads PNG normalized 0-1)
+    mask = np.any(rgb < 1.0, axis=-1)  # True where pixels are not white
+    
+    if not np.any(mask):
+        print("Image is all white, skipping crop.")
+        return
+
+    # Find bounding box of non-white pixels
+    coords = np.argwhere(mask)
+    y0, x0 = coords.min(axis=0)
+    y1, x1 = coords.max(axis=0)
+
+    # Apply border, but keep within image dimensions
+    y0 = max(y0 - border, 0)
+    x0 = max(x0 - border, 0)
+    y1 = min(y1 + border, img.shape[0]-1)
+    x1 = min(x1 + border, img.shape[1]-1)
+
+    cropped_img = img[y0:y1+1, x0:x1+1]
+
+    # Save back to the same file
+    plt.imsave(fname, cropped_img)
 
 
 def colors_from_values(values, indx=None, cmap="YlOrBr_r", 
@@ -265,16 +285,10 @@ def run(args):
 
     # Save bundle snapshot
     if args.out_image_path is not None:
+        window.record(scene=scene, size=(1200, 1200), out_path=args.out_image_path)
         if args.auto_crop:
-            arr = window.snapshot(scene, size=(1200, 1200))
-            arr = autocrop(arr, border=15)
-            arr = cv2.cvtColor(arr, cv2.COLOR_BGR2RGB)
-            cv2.imwrite(args.out_image_path, arr)
-
-            logging.info(f"Saved cropped bundle snapshot to {args.out_image_path}")
-        else:
-            logging.info(f"Saved bundle snapshot to {args.out_image_path}")
-            window.record(scene=scene, size=(1200, 1200), out_path=args.out_image_path)
+            autocrop_png(args.out_image_path)
+        logging.info(f"Saved bundle snapshot to {args.out_image_path}")
 
 
 def main():
@@ -330,7 +344,6 @@ def main():
     # Plot option args
     parser.add_argument( "--auto_crop", "-crop", action="store_true", 
                         help="Automatically crop image when saving", )
-
     parser.add_argument( "--show_bundle", "-show", action="store_true", 
                         help="Show the interactive window", )
     parser.add_argument( "--as_points", "-points", action="store_true", 
